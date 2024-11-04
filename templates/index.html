@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wybór Tras</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Wybór Tras</h1>
+    <div id="map"></div> <!-- Kontener na pojedynczą mapę -->
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Inicjalizacja mapy
+        const map = L.map('map').setView([52.2297, 21.0122], 6); // Początkowe ustawienie widoku mapy na Polskę
+
+        // Dodanie warstwy mapy
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Funkcja do pobierania tras z API
+        async function fetchRoutes() {
+            const response = await fetch('/api/routes');
+            const routes = await response.json();
+            displayRoutes(routes);
+        }
+
+        // Funkcja do wyświetlania wszystkich tras na jednej mapie
+        function displayRoutes(routes) {
+            routes.forEach(route => {
+                route.waypoints.forEach(waypoint => {
+                    // Dodanie waypointu jako markera na mapie
+                    L.marker([waypoint.lat, waypoint.lng]).addTo(map)
+                        .bindPopup(`<strong>${route.name}</strong><br>${waypoint.description}`);
+                });
+            });
+
+            // Dodanie aktualnej pozycji użytkownika na mapie
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const userMarker = L.marker([position.coords.latitude, position.coords.longitude], {
+                        icon: L.icon({
+                            iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+                            iconSize: [25, 41],
+                            iconAnchor: [12, 41],
+                            popupAnchor: [1, -34]
+                        })
+                    }).addTo(map)
+                      .bindPopup("Jesteś tutaj")
+                      .openPopup();
+
+                    // Dopasowanie widoku mapy, aby objąć wszystkie punkty
+                    const bounds = L.latLngBounds([
+                        ...routes.flatMap(route => route.waypoints.map(wp => [wp.lat, wp.lng])),
+                        [position.coords.latitude, position.coords.longitude]
+                    ]);
+                    map.fitBounds(bounds);
+                }, error => {
+                    console.error("Błąd geolokalizacji:", error.message);
+                });
+            } else {
+                console.log("Geolokalizacja nie jest obsługiwana przez tę przeglądarkę.");
+            }
+        }
+
+        // Wywołanie funkcji fetchRoutes na załadowanie strony
+        fetchRoutes();
+    </script>
+</body>
+</html>
